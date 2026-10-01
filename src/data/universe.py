@@ -132,3 +132,51 @@ UNIVERSE_SYMBOLS: List[Dict[str, str]] = [
 def get_twse_universe() -> List[Dict[str, str]]:
     """Return the defined liquid TWSE universe."""
     return UNIVERSE_SYMBOLS
+
+
+def build_yearly_membership(
+    prices_dict: "dict",
+    top_n: int = 80,
+    lookback_days: int = 60,
+    exclude: "set | None" = None,
+) -> "dict[int, list]":
+    """Rule-based yearly universe reconstitution (no look-ahead).
+
+    For each calendar year Y in the data range, rank all pool symbols by
+    mean daily Turnover over the last `lookback_days` sessions on or before
+    Dec 31 of year Y-1, and keep the top_n. The first year with data keeps
+    the full pool (warm-up, no ranking history available).
+
+    Returns {year: [symbols]} — membership valid for the whole year.
+    """
+    import pandas as pd
+
+    exclude = set(exclude or [])
+    # Collect all session dates across pool (exclude benchmark later via `exclude`)
+    all_dates = set()
+    for sym, df in prices_dict.items():
+        if sym in exclude:
+            continue
+        idx = df.index.tz_localize(None) if hasattr(df.index, "tz") and df.index.tz is not None else df.index
+        all_dates.update(idx)
+    all_dates = sorted(all_dates)
+    if not all_dates:
+        return {}
+    years = sorted({d.year for d in all_dates})
+    first_year = years[0]
+    membership = {first_year: sorted([s for s in prices_dict if s not in exclude])}
+
+    for year in years[1:]:
+        cutoff = pd.Timestamp(year - 1, 12, 31)
+        scores = []
+        for sym, df in prices_dict.items():
+            if sym in exclude:
+                continue
+            idx = df.index.tz_localize(None) if hasattr(df.index, "tz") and df.index.tz is not None else df.index
+            hist = df[idx <= cutoff].tail(lookback_days)
+            if hist.empty or "Turnover" not in hist.columns:
+                continue
+            scores.append((sym, float(hist["Turnover"].mean())))
+        scores.sort(key=lambda x: x[1], reverse=True)
+        membership[year] = [s for s, _ in scores[:top_n]]
+    return membership

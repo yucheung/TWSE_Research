@@ -15,7 +15,7 @@ if sys.platform == "win32":
 import pandas as pd
 from tabulate import tabulate
 
-from src.data.universe import get_twse_universe, BENCHMARK_SYMBOL
+from src.data.universe import get_twse_universe, BENCHMARK_SYMBOL, build_yearly_membership
 from src.data.fetcher import DataFetcher
 from src.factors.factor_builder import FactorBuilder
 from src.strategies.strategy_a_revenue import RevenueBreakoutStrategy
@@ -32,6 +32,9 @@ def main():
     parser.add_argument("--end", type=str, default="2026-09-30", help="Backtest end date")
     parser.add_argument("--capital", type=float, default=1_000_000.0, help="Initial capital in NTD")
     parser.add_argument("--refresh", action="store_true", help="Force refresh cached data")
+    parser.add_argument("--universe-topn", type=int, default=0, help="0=full static pool; N=yearly rule-based top-N by turnover (engine mode)")
+    parser.add_argument("--train-end", type=str, default="", help="YYYY-MM-DD split: metrics reported for in-sample (<=date) and OOS (>date); empty=no split")
+    parser.add_argument("--outdir", type=str, default="reports", help="Report output directory")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -55,11 +58,19 @@ def main():
 
     # 2. Factor Builder
     print("\n[Step 3/4] 初始化因子建構引擎與流動性濾網...")
+    universe_by_year = None
+    if args.universe_topn and args.universe_topn > 0:
+        universe_by_year = build_yearly_membership(
+            prices_dict, top_n=args.universe_topn, exclude={BENCHMARK_SYMBOL}
+        )
+        counts = {y: len(m) for y, m in sorted(universe_by_year.items())}
+        print(f"  [Engine] 規則選股池 (yearly top-{args.universe_topn} by turnover): {counts}")
     factor_builder = FactorBuilder(
         prices_dict=prices_dict,
         revenue_dict=revenue_dict,
         institutional_dict=inst_dict,
         liquidity_min_turnover=30_000_000.0,  # 20MA Turnover >= 30M NTD
+        universe_by_year=universe_by_year,
     )
 
     # 3. Backtest Engine
@@ -91,14 +102,35 @@ def main():
         res["metrics"] = metrics
         results[strat.name] = res
 
+    # Train/OOS split report (engine mode)
+    if args.train_end:
+        split = pd.Timestamp(args.train_end)
+        print("\n" + "=" * 70)
+        print(f"[Engine] 樣本內 vs 區間外 (split={args.train_end})")
+        print("=" * 70)
+        seg_rows = []
+        for strat in strategies:
+            res = results[strat.name]
+            nav = res["daily_nav"]["nav"]
+            bench = df_bench["nav"]
+            for label, seg_nav, seg_bench in [
+                ("IS", nav[nav.index <= split], bench[bench.index <= split]),
+                ("OOS", nav[nav.index > split], bench[bench.index > split]),
+            ]:
+                m = calculate_performance_metrics(strategy_nav=pd.Series(seg_nav), benchmark_nav=pd.Series(seg_bench))
+                if not m:
+                    continue
+                seg_rows.append([strat.name, label, f"{m['cagr']}%", f"{m['sharpe']}", f"{m['mdd']}%", f"{m['bench_cagr']}%"])
+        print(tabulate(seg_rows, headers=["策略", "區段", "CAGR(%)", "Sharpe", "MDD(%)", "0050 CAGR(%)"], tablefmt="pipe"))
+
     # 4. Generate Reports and Visualization
     print("\n" + "=" * 70)
     print("[Summary] 回測綜合績效總評")
     print("=" * 70)
-    md_table = generate_backtest_report(results, df_bench, output_dir="reports")
+    md_table = generate_backtest_report(results, df_bench, output_dir=args.outdir)
     print("\n" + md_table + "\n")
 
-    print("\n[Done] 回測完成！報告與圖表已儲存至 reports/ 目錄。")
+    print(f"\n[Done] 回測完成！報告與圖表已儲存至 {args.outdir}/ 目錄。")
 
 
 if __name__ == "__main__":

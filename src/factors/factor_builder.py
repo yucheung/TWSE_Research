@@ -15,11 +15,13 @@ class FactorBuilder:
         revenue_dict: Optional[Dict[str, pd.DataFrame]] = None,
         institutional_dict: Optional[Dict[str, pd.DataFrame]] = None,
         liquidity_min_turnover: float = 30_000_000.0,  # 30 Million NTD min 20MA daily turnover
+        universe_by_year: Optional[Dict[int, List[str]]] = None,  # rule-based yearly membership; None = full pool
     ):
         self.prices_dict = prices_dict
         self.revenue_dict = revenue_dict or {}
         self.institutional_dict = institutional_dict or {}
         self.liquidity_min_turnover = liquidity_min_turnover
+        self.universe_by_year = {y: set(m) for y, m in (universe_by_year or {}).items()}
 
         # Precompute date index alignment
         self.benchmark_df = self.prices_dict.get(BENCHMARK_SYMBOL)
@@ -76,8 +78,12 @@ class FactorBuilder:
         """
         records = []
 
+        members = self.universe_by_year.get(int(as_of_date.year)) if self.universe_by_year else None
+
         for symbol, p_df in self.prices_dict.items():
             if symbol == BENCHMARK_SYMBOL:
+                continue
+            if members is not None and symbol not in members:
                 continue
 
             # Ensure timezone-naive index
