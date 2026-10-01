@@ -30,9 +30,10 @@ class DataFetcher:
         start_date: str = "2020-01-01",
         end_date: str = "2026-09-30",
         force_refresh: bool = False,
+        cache_name: str = "prices_data.pkl",
     ) -> Dict[str, pd.DataFrame]:
         """Fetch daily OHLCV prices from yfinance and cache locally."""
-        cache_file = os.path.join(self.cache_dir, "prices_data.pkl")
+        cache_file = os.path.join(self.cache_dir, cache_name)
         if not force_refresh and os.path.exists(cache_file):
             print(f"[Fetcher] Loading cached price data from {cache_file}...")
             with open(cache_file, "rb") as f:
@@ -100,9 +101,10 @@ class DataFetcher:
         symbols: Optional[List[str]] = None,
         start_date: str = "2018-01-01",
         force_refresh: bool = False,
+        cache_name: str = "revenue_data.pkl",
     ) -> Dict[str, pd.DataFrame]:
         """Fetch monthly revenue from FinMind and cache locally."""
-        cache_file = os.path.join(self.cache_dir, "revenue_data.pkl")
+        cache_file = os.path.join(self.cache_dir, cache_name)
         if not force_refresh and os.path.exists(cache_file):
             print(f"[Fetcher] Loading cached revenue data from {cache_file}...")
             with open(cache_file, "rb") as f:
@@ -145,9 +147,10 @@ class DataFetcher:
         symbols: Optional[List[str]] = None,
         start_date: str = "2020-01-01",
         force_refresh: bool = False,
+        cache_name: str = "institutional_data.pkl",
     ) -> Dict[str, pd.DataFrame]:
         """Fetch institutional investors buy/sell data and cache locally."""
-        cache_file = os.path.join(self.cache_dir, "institutional_data.pkl")
+        cache_file = os.path.join(self.cache_dir, cache_name)
         if not force_refresh and os.path.exists(cache_file):
             print(f"[Fetcher] Loading cached institutional data from {cache_file}...")
             with open(cache_file, "rb") as f:

@@ -16,6 +16,7 @@ import pandas as pd
 from tabulate import tabulate
 
 from src.data.universe import get_twse_universe, BENCHMARK_SYMBOL, build_yearly_membership
+from src.data.market_pool import market_symbols_from_info, build_market_membership
 from src.data.fetcher import DataFetcher
 from src.factors.factor_builder import FactorBuilder
 from src.strategies.strategy_a_revenue import RevenueBreakoutStrategy
@@ -37,6 +38,8 @@ def main():
     parser.add_argument("--outdir", type=str, default="reports", help="Report output directory")
     parser.add_argument("--top-n", type=int, default=15, help="Top-N holdings per strategy")
     parser.add_argument("--bear-exposure", type=float, default=0.20, help="Strategy C equity exposure in bear regime")
+    parser.add_argument("--market-pool", action="store_true", help="Engine v3: yearly top-N pool from all listed stocks (no hand-picked list)")
+    parser.add_argument("--market-topn", type=int, default=200, help="Yearly pool size in market-pool mode")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -47,21 +50,49 @@ def main():
 
     # 1. Fetch Market Data
     fetcher = DataFetcher()
-    symbols = [item["symbol"] for item in get_twse_universe()]
-    if BENCHMARK_SYMBOL not in symbols:
-        symbols.append(BENCHMARK_SYMBOL)
+    universe_by_year = None
+    if args.market_pool:
+        print("\n[Step 1/4] 全市場名單 (TWSE/TPEx普通股，排除ETF/興櫃) ...")
+        info_df = fetcher.dl.taiwan_stock_info()
+        symbols = market_symbols_from_info(info_df)
+        if BENCHMARK_SYMBOL not in symbols:
+            symbols.append(BENCHMARK_SYMBOL)
+        print(f"  全市場候選: {len(symbols)} 檔 (含 {BENCHMARK_SYMBOL})")
+        print("\n[Step 1b/4] 下載全市場日行情 (2019起，為逐年母池排名用) ...")
+        prices_dict = fetcher.fetch_all_prices(
+            symbols=symbols, start_date="2019-01-01", end_date=args.end,
+            force_refresh=args.refresh, cache_name="market_prices.pkl",
+        )
+        universe_by_year = build_market_membership(prices_dict, top_n=args.market_topn)
+        counts = {y: len(m) for y, m in sorted(universe_by_year.items())}
+        print(f"  [Engine v3] 逐年母池 (top-{args.market_topn} by 前年均成交額): {counts}")
+        pooled = sorted({s for m in universe_by_year.values() for s in m})
+        print(f"  母池聯集: {len(pooled)} 檔 → 只抓這些的營收/法人 (省 FinMind 配額)")
+        print("\n[Step 2/4] 載入母池月營收與三大法人籌碼數據...")
+        revenue_dict = fetcher.fetch_all_revenue(
+            symbols=pooled, start_date=args.start, force_refresh=args.refresh,
+            cache_name="market_revenue.pkl",
+        )
+        inst_dict = fetcher.fetch_all_institutional(
+            symbols=pooled, start_date=args.start, force_refresh=args.refresh,
+            cache_name="market_institutional.pkl",
+        )
+    else:
+        symbols = [item["symbol"] for item in get_twse_universe()]
+        if BENCHMARK_SYMBOL not in symbols:
+            symbols.append(BENCHMARK_SYMBOL)
 
-    print("\n[Step 1/4] 載入台股日行情價格數據...")
-    prices_dict = fetcher.fetch_all_prices(symbols=symbols, start_date=args.start, end_date=args.end, force_refresh=args.refresh)
+        print("\n[Step 1/4] 載入台股日行情價格數據...")
+        prices_dict = fetcher.fetch_all_prices(symbols=symbols, start_date=args.start, end_date=args.end, force_refresh=args.refresh)
 
-    print("\n[Step 2/4] 載入台股月營收與三大法人籌碼數據...")
-    revenue_dict = fetcher.fetch_all_revenue(symbols=symbols, start_date=args.start, force_refresh=args.refresh)
-    inst_dict = fetcher.fetch_all_institutional(symbols=symbols, start_date=args.start, force_refresh=args.refresh)
+        print("\n[Step 2/4] 載入台股月營收與三大法人籌碼數據...")
+        revenue_dict = fetcher.fetch_all_revenue(symbols=symbols, start_date=args.start, force_refresh=args.refresh)
+        inst_dict = fetcher.fetch_all_institutional(symbols=symbols, start_date=args.start, force_refresh=args.refresh)
 
     # 2. Factor Builder
     print("\n[Step 3/4] 初始化因子建構引擎與流動性濾網...")
-    universe_by_year = None
-    if args.universe_topn and args.universe_topn > 0:
+    universe_by_year = universe_by_year or None
+    if not args.market_pool and args.universe_topn and args.universe_topn > 0:
         universe_by_year = build_yearly_membership(
             prices_dict, top_n=args.universe_topn, exclude={BENCHMARK_SYMBOL}
         )
@@ -98,8 +129,8 @@ def main():
         print(f"  -> 模擬策略: {strat.name}...")
         res = engine.run_strategy(strat, start_date=args.start, end_date=args.end)
         metrics = calculate_performance_metrics(
-            strategy_nav=res["daily_nav"]["nav"],
-            benchmark_nav=df_bench["nav"],
+            strategy_nav=pd.Series(res["daily_nav"]["nav"]),
+            benchmark_nav=pd.Series(df_bench["nav"]),
         )
         res["metrics"] = metrics
         results[strat.name] = res
