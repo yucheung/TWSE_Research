@@ -102,23 +102,31 @@ class DataFetcher:
         start_date: str = "2018-01-01",
         force_refresh: bool = False,
         cache_name: str = "revenue_data.pkl",
+        resume: bool = False,
+        throttle: float = 0.0,
     ) -> Dict[str, pd.DataFrame]:
         """Fetch monthly revenue from FinMind and cache locally."""
         cache_file = os.path.join(self.cache_dir, cache_name)
-        if not force_refresh and os.path.exists(cache_file):
+        if resume and os.path.exists(cache_file):
+            print(f"[Fetcher] Resuming: loading existing {cache_file}...")
+            with open(cache_file, "rb") as f:
+                rev_dict: Dict[str, pd.DataFrame] = pickle.load(f)
+        elif not force_refresh and os.path.exists(cache_file):
             print(f"[Fetcher] Loading cached revenue data from {cache_file}...")
             with open(cache_file, "rb") as f:
                 return pickle.load(f)
+        else:
+            rev_dict = {}
 
         if symbols is None:
             symbols = [item["symbol"] for item in get_twse_universe()]
 
-        print(f"[Fetcher] Fetching monthly revenue for {len(symbols)} symbols via FinMind...")
-        rev_dict: Dict[str, pd.DataFrame] = {}
+        todo = [s for s in symbols if s not in rev_dict and s != BENCHMARK_SYMBOL]
+        print(f"[Fetcher] Fetching monthly revenue: {len(todo)} missing / {len(symbols)} total via FinMind...")
+        if throttle > 0:
+            print(f"  (throttle {throttle}s/call to respect free-tier quota)")
 
-        for idx, sym in enumerate(symbols):
-            if sym == BENCHMARK_SYMBOL:
-                continue
+        for idx, sym in enumerate(todo):
             stock_id = self.get_stock_id(sym)
             try:
                 df = self.dl.taiwan_stock_month_revenue(stock_id=stock_id, start_date=start_date)
@@ -133,9 +141,13 @@ class DataFetcher:
                     rev_dict[sym] = df
             except Exception as e:
                 print(f"  [Warning] Revenue fetch failed for {sym} ({stock_id}): {e}")
+            if throttle > 0:
+                time.sleep(throttle)
             if (idx + 1) % 15 == 0:
-                print(f"  Fetched revenue {idx + 1}/{len(symbols)} stocks...")
+                print(f"  Fetched revenue {idx + 1}/{len(todo)} missing...")
                 time.sleep(0.5)
+                with open(cache_file, "wb") as f:
+                    pickle.dump(rev_dict, f)
 
         with open(cache_file, "wb") as f:
             pickle.dump(rev_dict, f)
@@ -148,23 +160,31 @@ class DataFetcher:
         start_date: str = "2020-01-01",
         force_refresh: bool = False,
         cache_name: str = "institutional_data.pkl",
+        resume: bool = False,
+        throttle: float = 0.0,
     ) -> Dict[str, pd.DataFrame]:
         """Fetch institutional investors buy/sell data and cache locally."""
         cache_file = os.path.join(self.cache_dir, cache_name)
-        if not force_refresh and os.path.exists(cache_file):
+        if resume and os.path.exists(cache_file):
+            print(f"[Fetcher] Resuming: loading existing {cache_file}...")
+            with open(cache_file, "rb") as f:
+                inst_dict: Dict[str, pd.DataFrame] = pickle.load(f)
+        elif not force_refresh and os.path.exists(cache_file):
             print(f"[Fetcher] Loading cached institutional data from {cache_file}...")
             with open(cache_file, "rb") as f:
                 return pickle.load(f)
+        else:
+            inst_dict = {}
 
         if symbols is None:
             symbols = [item["symbol"] for item in get_twse_universe()]
 
-        print(f"[Fetcher] Fetching institutional trading data for {len(symbols)} symbols...")
-        inst_dict: Dict[str, pd.DataFrame] = {}
+        todo = [s for s in symbols if s not in inst_dict and s != BENCHMARK_SYMBOL]
+        print(f"[Fetcher] Fetching institutional trading data: {len(todo)} missing / {len(symbols)} total...")
+        if throttle > 0:
+            print(f"  (throttle {throttle}s/call to respect free-tier quota)")
 
-        for idx, sym in enumerate(symbols):
-            if sym == BENCHMARK_SYMBOL:
-                continue
+        for idx, sym in enumerate(todo):
             stock_id = self.get_stock_id(sym)
             try:
                 df = self.dl.taiwan_stock_institutional_investors(stock_id=stock_id, start_date=start_date)
@@ -174,9 +194,13 @@ class DataFetcher:
                     inst_dict[sym] = df
             except Exception as e:
                 print(f"  [Warning] Institutional data failed for {sym}: {e}")
+            if throttle > 0:
+                time.sleep(throttle)
             if (idx + 1) % 15 == 0:
-                print(f"  Fetched institutional {idx + 1}/{len(symbols)} stocks...")
+                print(f"  Fetched institutional {idx + 1}/{len(todo)} missing...")
                 time.sleep(0.5)
+                with open(cache_file, "wb") as f:
+                    pickle.dump(inst_dict, f)
 
         with open(cache_file, "wb") as f:
             pickle.dump(inst_dict, f)
