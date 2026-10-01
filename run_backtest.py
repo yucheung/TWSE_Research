@@ -35,6 +35,8 @@ def main():
     parser.add_argument("--universe-topn", type=int, default=0, help="0=full static pool; N=yearly rule-based top-N by turnover (engine mode)")
     parser.add_argument("--train-end", type=str, default="", help="YYYY-MM-DD split: metrics reported for in-sample (<=date) and OOS (>date); empty=no split")
     parser.add_argument("--outdir", type=str, default="reports", help="Report output directory")
+    parser.add_argument("--top-n", type=int, default=15, help="Top-N holdings per strategy")
+    parser.add_argument("--bear-exposure", type=float, default=0.20, help="Strategy C equity exposure in bear regime")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -86,9 +88,9 @@ def main():
     df_bench = engine.run_benchmark_0050(start_date=args.start, end_date=args.end)
 
     strategies = [
-        RevenueBreakoutStrategy(top_n=15),
-        InstitutionalTrustStrategy(top_n=15),
-        EnsembleMultiFactorStrategy(top_n=15, bear_equity_exposure=0.20),
+        RevenueBreakoutStrategy(top_n=args.top_n),
+        InstitutionalTrustStrategy(top_n=args.top_n),
+        EnsembleMultiFactorStrategy(top_n=args.top_n, bear_equity_exposure=args.bear_exposure),
     ]
 
     results = {}

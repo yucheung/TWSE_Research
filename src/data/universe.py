@@ -126,6 +126,52 @@ UNIVERSE_SYMBOLS: List[Dict[str, str]] = [
     {"symbol": "1216.TW", "name": "統一", "sector": "食品龍頭"},
     {"symbol": "9910.TW", "name": "豐泰", "sector": "運動鞋代工"},
     {"symbol": "9921.TW", "name": "巨大", "sector": "自行車品牌"},
+
+    # Engine v2: 擴大母池（補遺漏板塊＋弱勢股，稀釋生還者偏差）
+    # Telecom
+    {"symbol": "2412.TW", "name": "中華電", "sector": "電信"},
+    {"symbol": "3045.TW", "name": "台灣大", "sector": "電信"},
+    {"symbol": "4904.TW", "name": "遠傳", "sector": "電信"},
+    # Memory & Panel (景氣循環弱勢群)
+    {"symbol": "2337.TW", "name": "旺宏", "sector": "記憶體"},
+    {"symbol": "2344.TW", "name": "華邦電", "sector": "記憶體"},
+    {"symbol": "2409.TW", "name": "友達", "sector": "面板"},
+    {"symbol": "3481.TW", "name": "群創", "sector": "面板"},
+    # PC / Peripherals
+    {"symbol": "2353.TW", "name": "宏碁", "sector": "品牌PC"},
+    {"symbol": "2324.TW", "name": "仁寶", "sector": "電子代工"},
+    {"symbol": "2385.TW", "name": "群光", "sector": "電腦周邊"},
+    {"symbol": "2392.TW", "name": "正崴", "sector": "連接器/周邊"},
+    {"symbol": "6285.TWO", "name": "啟碁", "sector": "網通/天線"},
+    {"symbol": "2313.TW", "name": "華通", "sector": "PCB"},
+    {"symbol": "2367.TW", "name": "燿華", "sector": "PCB"},
+    {"symbol": "5469.TW", "name": "瀚宇博", "sector": "PCB"},
+    # Power / PA / IC
+    {"symbol": "2457.TW", "name": "飛宏", "sector": "電源"},
+    {"symbol": "3105.TW", "name": "穩懋", "sector": "PA代工"},
+    {"symbol": "2455.TW", "name": "全新", "sector": "PA上游"},
+    {"symbol": "8086.TW", "name": "宏捷科", "sector": "PA"},
+    {"symbol": "5471.TW", "name": "松翰", "sector": "MCU"},
+    {"symbol": "4968.TW", "name": "立積", "sector": "RF IC"},
+    # E-commerce / Channel
+    {"symbol": "8044.TW", "name": "網家", "sector": "電商"},
+    {"symbol": "8454.TW", "name": "富邦媒", "sector": "電商/momo"},
+    # Textile / Tires / Bike
+    {"symbol": "1476.TW", "name": "儒鴻", "sector": "紡織"},
+    {"symbol": "1477.TW", "name": "聚陽", "sector": "紡織"},
+    {"symbol": "2105.TW", "name": "正新", "sector": "輪胎"},
+    {"symbol": "9914.TW", "name": "美利達", "sector": "自行車"},
+    # Steel / Petrochemical laggards
+    {"symbol": "2006.TW", "name": "東和鋼鐵", "sector": "鋼鐵"},
+    {"symbol": "2015.TW", "name": "豐興", "sector": "鋼鐵"},
+    {"symbol": "2031.TW", "name": "新光鋼", "sector": "鋼鐵"},
+    {"symbol": "1312.TW", "name": "國喬", "sector": "石化"},
+    {"symbol": "1314.TW", "name": "中石化", "sector": "石化"},
+    {"symbol": "1402.TW", "name": "遠東新", "sector": "化纖紡織"},
+    # Auto / Motor
+    {"symbol": "2204.TW", "name": "中華", "sector": "汽車"},
+    {"symbol": "2227.TW", "name": "裕日車", "sector": "汽車"},
+    {"symbol": "2371.TW", "name": "大同", "sector": "電機重電"},
 ]
 
 
